@@ -52,11 +52,11 @@ class OpenRouterConfig:
     Defaults to gpt-oss-120b on Cerebras provider.
     """
 
-    model: str = "openai/gpt-oss-120b:nitro"
+    model: str = "google/gemini-2.5-flash"
     api_key: str = ""
     max_tokens: int = 100000
-    temperature: float = 0.6
-    max_iterations: int = 30
+    temperature: float = 0.2
+    max_iterations: int = 60
     # Provider routing - no restriction by default
     provider: dict[str, Any] = field(default_factory=dict)
     # Reasoning configuration

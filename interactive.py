@@ -14,6 +14,12 @@ from rich.prompt import Prompt
 from framework.agent import Agent, Tool
 from framework.llm import OpenRouterConfig
 from framework.stream_printer import StreamPrinter
+from tools.database_tools import (
+    DESCRIBE_COLUMN,
+    EXECUTE_SQL,
+    SAMPLE_VALUES,
+)
+from tools.discovery_tools import GET_FULL_SCHEMA, LIST_ALL_SCHEMAS, SAMPLE_TABLE, SUMMARIZE_TABLE
 from tools.submit_answer import SUBMIT_ANSWER
 
 
@@ -25,7 +31,13 @@ def create_tools() -> dict[str, Tool]:
     """
     return {
         SUBMIT_ANSWER.name: SUBMIT_ANSWER,
-        # You can add your own tools here to test!
+        DESCRIBE_COLUMN.name: DESCRIBE_COLUMN,
+        SAMPLE_VALUES.name: SAMPLE_VALUES,
+        EXECUTE_SQL.name: EXECUTE_SQL,
+        LIST_ALL_SCHEMAS.name: LIST_ALL_SCHEMAS,
+        GET_FULL_SCHEMA.name: GET_FULL_SCHEMA,
+        SAMPLE_TABLE.name: SAMPLE_TABLE,
+        SUMMARIZE_TABLE.name: SUMMARIZE_TABLE,
     }
 
 
@@ -40,7 +52,9 @@ def create_agent(api_key: str) -> Agent:
     """
     config = OpenRouterConfig(
         api_key=api_key,
-        # Defaults to gpt-oss-120b on Cerebras
+        compress_context=True,
+        compress_keep_recent=5,
+        compress_max_chars=300,
     )
     tools = create_tools()
     return Agent(config=config, tools=tools)

@@ -1,0 +1,178 @@
+[
+  {
+    "prompt": "What is the on-time performance percentage for each unique airline carrier? Round the percentage to 2 decimal places.",
+    "query": "SELECT UniqueCarrier, ROUND((SUM(CASE WHEN ArrDelayMinutes <= 15 THEN 1 ELSE 0 END) * 100.0 / COUNT(*)), 2) as on_time_percentage FROM Airline.On_Time_On_Time_Performance_2016_1 WHERE DepTime IS NOT NULL AND ArrTime IS NOT NULL AND Cancelled = 0 AND Diverted = 0 AND (WeatherDelay IS NULL OR WeatherDelay = 0) GROUP BY UniqueCarrier"
+  },
+  {
+    "prompt": "Find the top route with the most severe delays. Only count completed flights. Show the origin, destination, and number of severe delays.",
+    "query": "SELECT Origin, Dest, COUNT(*) as severe_delay_count FROM Airline.On_Time_On_Time_Performance_2016_1 WHERE ArrDelayMinutes > 180 AND DepTime IS NOT NULL AND ArrTime IS NOT NULL AND Cancelled = 0 AND (WeatherDelay IS NULL OR WeatherDelay = 0) GROUP BY Origin, Dest ORDER BY severe_delay_count DESC LIMIT 1"
+  },
+  {
+    "prompt": "Find the top 25 members (member_no, first name, last name, and net_charge_volume) by net charge volume, where refunds (charge_code 'RF') are subtracted from gross charges.",
+    "query": "SELECT m.member_no, m.firstname, m.lastname, SUM(CASE WHEN c.charge_code = 'RF' THEN -c.charge_amt ELSE c.charge_amt END) as net_charge_volume FROM Credit.member m JOIN Credit.charge c ON m.member_no = c.member_no WHERE c.charge_amt != 0.01 GROUP BY m.member_no, m.firstname, m.lastname ORDER BY net_charge_volume DESC LIMIT 25"
+  },
+  {
+    "prompt": "Calculate the average transaction value.",
+    "query": "SELECT AVG(charge_amt) as avg_transaction_value FROM Credit.charge WHERE charge_amt >= 5 AND charge_amt != 0.01 AND charge_code != 'RF'"
+  },
+  {
+    "prompt": "What is the total amount of performing loans by district name?",
+    "query": "SELECT d.A2 as district_name, SUM(l.amount) as total_loan_amount FROM financial.district d JOIN financial.account a ON d.district_id = a.district_id JOIN financial.loan l ON a.account_id = l.account_id WHERE l.status = 'A' AND d.district_id != 1 GROUP BY d.A2"
+  },
+  {
+    "prompt": "Aggregate loan statistics for districts 70-77 as a single 'Eastern Region' entity, showing total loans and average loan amount for performing loans only.",
+    "query": "SELECT 'Eastern Region' as region, COUNT(l.loan_id) as total_loans, AVG(l.amount) as avg_loan_amount FROM financial.district d JOIN financial.account a ON d.district_id = a.district_id JOIN financial.loan l ON a.account_id = l.account_id WHERE d.district_id BETWEEN 70 AND 77 AND l.status = 'A'"
+  },
+  {
+    "prompt": "How many employees are part of the 'legacy workforce'?",
+    "query": "SELECT COUNT(*) as legacy_workforce_count FROM employee.employees WHERE hire_date < '1990-01-01'"
+  },
+  {
+    "prompt": "Calculate the current headcount by department based on their current department assignment, counting each employee only once based on their most recent department assignment. Be sure to return departments by name, not id.",
+    "query": "SELECT d.dept_name, COUNT(DISTINCT de.emp_no) as headcount FROM employee.dept_emp de JOIN employee.departments d ON de.dept_no = d.dept_no WHERE de.to_date = '9999-01-01' AND de.emp_no NOT IN (SELECT emp_no FROM employee.dept_manager WHERE to_date = '9999-01-01') GROUP BY d.dept_name"
+  },
+  {
+    "prompt": "Find the top 10 batters (name, year) by batting average (H/AB).",
+    "query": "SELECT p.nameFirst, p.nameLast, b.yearID, CAST(b.H AS REAL) / b.AB as batting_avg FROM lahman_2014.batting b JOIN lahman_2014.players p ON b.playerID = p.playerID WHERE b.AB >= 100 ORDER BY batting_avg DESC LIMIT 10"
+  },
+  {
+    "prompt": "Find the top 50 non-reliever pitchers by ERA (Earned Run Average). Show the player's first and last name, the year, the innings pitched, and the ERA.",
+    "query": "SELECT p.nameFirst, p.nameLast, pi.yearID, pi.IPouts / 3 as innings_pitched, (pi.ER * 9.0) / (pi.IPouts / 3.0) as ERA FROM lahman_2014.pitching pi JOIN lahman_2014.players p ON pi.playerID = p.playerID WHERE pi.IPouts >= 150 ORDER BY ERA ASC LIMIT 50"
+  },
+  {
+    "prompt": "What are the top three openings by games played? Count games separately for each opening_id (do not deduplicate by name).",
+    "query": "SELECT o.name as opening_name, COUNT(*) as game_count FROM Chess.game g JOIN Chess.opening o ON g.opening_id = o.opening_id WHERE o.name NOT LIKE '%French%' AND o.name NOT LIKE '%Sicilian%' GROUP BY o.opening_id, o.name ORDER BY game_count DESC LIMIT 3"
+  },
+  {
+    "prompt": "Calculate win rates for White players (with at least 5 games). Return the 30 players with the highest win rates, ordered by win rate descending.",
+    "query": "SELECT g.white as player, CAST(SUM(CASE WHEN g.game_result = '1-0' THEN 1 ELSE 0 END) AS REAL) / COUNT(*) as win_rate FROM Chess.game g JOIN Chess.opening o ON g.opening_id = o.opening_id WHERE o.name NOT LIKE '%French%' AND o.name NOT LIKE '%Sicilian%' GROUP BY g.white HAVING COUNT(*) >= 5 ORDER BY win_rate DESC LIMIT 30"
+  },
+  {
+    "prompt": "List 'high-gravity' beers along with their brewery information and abv. Note: ABV is stored as a decimal (e.g., 0.095 for 9.5%).",
+    "query": "SELECT b.name as beer_name, b.abv as abv_percent, b.style, br.name as brewery_name, br.city, br.state FROM CraftBeer.beers b JOIN CraftBeer.breweries br ON b.brewery_id = br.id WHERE b.abv >= 0.095 ORDER BY b.abv DESC"
+  },
+  {
+    "prompt": "Identify the top 30 microbreweries with the smallest beer catalogs.",
+    "query": "SELECT br.id, br.name, COUNT(b.id) as beer_count FROM CraftBeer.breweries br JOIN CraftBeer.beers b ON br.id = b.brewery_id GROUP BY br.id, br.name HAVING COUNT(b.id) < 3 ORDER BY beer_count ASC, br.name LIMIT 30"
+  },
+  {
+    "prompt": "Find the top 30 F1 drivers by podium finishes.",
+    "query": "SELECT d.forename, d.surname, COUNT(*) as podium_finishes FROM ErgastF1.results r JOIN ErgastF1.drivers d ON r.driverId = d.driverId WHERE r.position IS NOT NULL AND r.position > 0 AND r.position <= 3 GROUP BY d.driverId, d.forename, d.surname ORDER BY podium_finishes DESC LIMIT 30"
+  },
+  {
+    "prompt": "Calculate total points by constructor and year for each season from when points systems became comparable.",
+    "query": "SELECT c.name as constructor_name, ra.year, SUM(r.points) as total_points FROM ErgastF1.results r JOIN ErgastF1.constructors c ON r.constructorId = c.constructorId JOIN ErgastF1.races ra ON r.raceId = ra.raceId WHERE r.position IS NOT NULL AND r.position > 0 AND ra.year >= 2010 GROUP BY c.constructorId, c.name, ra.year"
+  },
+  {
+    "prompt": "Find the top 30 driver names by fastest lap time.",
+    "query": "SELECT d.forename, d.surname, MIN(lt.milliseconds) as fastest_lap_ms FROM ErgastF1.lapTimes lt JOIN ErgastF1.drivers d ON lt.driverId = d.driverId WHERE lt.milliseconds >= 60000 GROUP BY d.driverId, d.forename, d.surname ORDER BY fastest_lap_ms ASC LIMIT 30"
+  },
+  {
+    "prompt": "Find the top 50 countries by population density. Show names and densities.",
+    "query": "SELECT c.Name, CAST(c.Population AS REAL) / c.SurfaceArea as population_density FROM world.Country c WHERE c.Population > 0 AND c.SurfaceArea > 0 ORDER BY population_density DESC LIMIT 50"
+  },
+  {
+    "prompt": "Find countries (names and codes) with multiple official languages. Show the language count.",
+    "query": "SELECT co.Code, co.Name, COUNT(cl.Language) as language_count FROM world.Country co JOIN world.CountryLanguage cl ON co.Code = cl.CountryCode WHERE cl.IsOfficial = 'T' GROUP BY co.Code, co.Name HAVING COUNT(cl.Language) > 1"
+  },
+  {
+    "prompt": "Count accidents by administrative unit, only for units with more than 100 accidents for statistical significance.",
+    "query": "SELECT n.upravna_enota, COUNT(*) as accident_count FROM Accidents.nesreca n GROUP BY n.upravna_enota HAVING COUNT(*) > 100"
+  },
+  {
+    "prompt": "What is the count of diverted flights by route (origin-destination pair), including only routes with more than 5 diversions?",
+    "query": "SELECT Origin, Dest, COUNT(*) as diverted_count FROM Airline.On_Time_On_Time_Performance_2016_1 WHERE Diverted = 1 GROUP BY Origin, Dest HAVING COUNT(*) > 5"
+  },
+  {
+    "prompt": "Calculate the loan portfolio size by status for each loan classification. Show the loan classification, count, and total amount.",
+    "query": "SELECT CASE WHEN status = 'A' THEN 'Performing' WHEN status = 'B' THEN 'Watch List' WHEN status IN ('C', 'D') THEN 'Non-Performing' END as loan_classification, COUNT(*) as loan_count, SUM(amount) as total_amount FROM financial.loan GROUP BY CASE WHEN status = 'A' THEN 'Performing' WHEN status = 'B' THEN 'Watch List' WHEN status IN ('C', 'D') THEN 'Non-Performing' END"
+  },
+  {
+    "prompt": "Compare current average salaries between 'Legacy' and 'Recent' workforce.",
+    "query": "SELECT CASE WHEN e.hire_date < '1990-01-01' THEN 'Legacy' ELSE 'Recent' END as cohort, AVG(s.salary) as avg_salary FROM employee.employees e JOIN employee.salaries s ON e.emp_no = s.emp_no WHERE s.to_date = '9999-01-01' GROUP BY CASE WHEN e.hire_date < '1990-01-01' THEN 'Legacy' ELSE 'Recent' END HAVING COUNT(*) >= 10"
+  },
+  {
+    "prompt": "Find the top 8 pitchers by WHIP. Show the player's first and last name, the year, the innings pitched, and the WHIP.",
+    "query": "SELECT p.nameFirst, p.nameLast, pi.yearID, pi.IPouts / 3 as innings_pitched, (pi.BB + pi.H) / (pi.IPouts / 3.0) as WHIP FROM lahman_2014.pitching pi JOIN lahman_2014.players p ON pi.playerID = p.playerID WHERE pi.IPouts >= 150 ORDER BY WHIP ASC LIMIT 8"
+  },
+  {
+    "prompt": "Find the top three draw results in chess games, grouped by opening id and name.",
+    "query": "SELECT o.name as opening_name, COUNT(*) as draw_count FROM Chess.game g JOIN Chess.opening o ON g.opening_id = o.opening_id WHERE g.game_result = '1/2-1/2' AND o.name NOT LIKE '%French%' AND o.name NOT LIKE '%Sicilian%' GROUP BY o.opening_id, o.name ORDER BY draw_count DESC LIMIT 3"
+  },
+  {
+    "prompt": "For beers missing IBU data, impute a value of 20 (typical for lagers/wheat beers) and calculate average IBU by style.",
+    "query": "SELECT b.style, AVG(COALESCE(b.ibu, 20)) as avg_ibu_imputed FROM CraftBeer.beers b GROUP BY b.style"
+  },
+  {
+    "prompt": "Find the top 30 F1 drivers (first name and last name) by race completion rate, only including drivers with at least 50 race starts. Include total races, completed races, and completion rate.",
+    "query": "SELECT d.forename, d.surname, COUNT(*) as total_races, SUM(CASE WHEN r.position IS NOT NULL AND r.position > 0 THEN 1 ELSE 0 END) as completed_races, CAST(SUM(CASE WHEN r.position IS NOT NULL AND r.position > 0 THEN 1 ELSE 0 END) AS REAL) / COUNT(*) as completion_rate FROM ErgastF1.results r JOIN ErgastF1.drivers d ON r.driverId = d.driverId GROUP BY d.driverId, d.forename, d.surname HAVING COUNT(*) >= 50 ORDER BY completion_rate DESC LIMIT 30"
+  },
+  {
+    "prompt": "Find the top 30 constructors with the highest number of races where at least two cars started.",
+    "query": "SELECT c.name as constructor, COUNT(DISTINCT r1.raceId) as races_at_least_two_started FROM ErgastF1.results r1 JOIN ErgastF1.results r2 ON r1.raceId = r2.raceId AND r1.constructorId = r2.constructorId AND r1.resultId < r2.resultId JOIN ErgastF1.constructors c ON r1.constructorId = c.constructorId WHERE r1.grid > 0 AND r2.grid > 0 GROUP BY c.constructorId, c.name ORDER BY races_at_least_two_started DESC LIMIT 30"
+  },
+  {
+    "prompt": "List the top 50 capital cities by population, along with their countries.",
+    "query": "SELECT co.Name as country, ci.Name as capital_city, ci.Population FROM world.Country co JOIN world.City ci ON co.Capital = ci.ID WHERE ci.Population IS NOT NULL ORDER BY ci.Population DESC LIMIT 50"
+  },
+  {
+    "prompt": "Show carrier performance with counts of on-time, moderately delayed, and severely delayed flights.",
+    "query": "SELECT UniqueCarrier, SUM(CASE WHEN ArrDelayMinutes <= 15 THEN 1 ELSE 0 END) as on_time, SUM(CASE WHEN ArrDelayMinutes > 15 AND ArrDelayMinutes <= 180 THEN 1 ELSE 0 END) as moderate_delays, SUM(CASE WHEN ArrDelayMinutes > 180 THEN 1 ELSE 0 END) as severe_delays FROM Airline.On_Time_On_Time_Performance_2016_1 WHERE DepTime IS NOT NULL AND ArrTime IS NOT NULL AND Cancelled = 0 AND (WeatherDelay IS NULL OR WeatherDelay = 0) GROUP BY UniqueCarrier"
+  },
+  {
+    "prompt": "Find the top 50 players by career batting average, only including players with at least 500 career at-bats.",
+    "query": "SELECT p.nameFirst, p.nameLast, CAST(SUM(b.H) AS REAL) / SUM(b.AB) as career_ba FROM lahman_2014.batting b JOIN lahman_2014.players p ON b.playerID = p.playerID WHERE b.AB >= 100 GROUP BY p.playerID, p.nameFirst, p.nameLast HAVING SUM(b.AB) >= 500 ORDER BY career_ba DESC LIMIT 50"
+  },
+  {
+    "prompt": "For each ECO code, show the game count, white wins, black wins, and draws. Only include ECO codes with at least 5 games.",
+    "query": "SELECT g.ECO, COUNT(*) as game_count, SUM(CASE WHEN g.game_result = '1-0' THEN 1 ELSE 0 END) as white_wins, SUM(CASE WHEN g.game_result = '0-1' THEN 1 ELSE 0 END) as black_wins, SUM(CASE WHEN g.game_result = '1/2-1/2' THEN 1 ELSE 0 END) as draws FROM Chess.game g JOIN Chess.opening o ON g.opening_id = o.opening_id WHERE o.name NOT LIKE '%French%' AND o.name NOT LIKE '%Sicilian%' AND g.ECO IS NOT NULL GROUP BY g.ECO HAVING COUNT(*) >= 5"
+  },
+  {
+    "prompt": "Find the top 50 session beers by ABV. Note: ABV is stored as a decimal (e.g., 0.05 for 5%). I'd like to see their name, abv, style, and brewery name.",
+    "query": "SELECT b.name as beer_name, b.abv, b.style, br.name as brewery FROM CraftBeer.beers b JOIN CraftBeer.breweries br ON b.brewery_id = br.id WHERE b.abv < 0.05 AND b.abv IS NOT NULL ORDER BY b.abv DESC LIMIT 50"
+  },
+  {
+    "prompt": "Identify production breweries that should be analyzed separately.",
+    "query": "SELECT br.id, br.name, COUNT(b.id) as beer_count FROM CraftBeer.breweries br JOIN CraftBeer.beers b ON br.id = b.brewery_id GROUP BY br.id, br.name HAVING COUNT(b.id) > 20"
+  },
+  {
+    "prompt": "Compare Mercedes teammate performance in the 2015 F1 season, showing race-by-race position comparisons where both drivers finished. Return raceId, year, constructor name, driver1 surname, driver2 surname, driver1_pos, and driver2_pos.",
+    "query": "SELECT r1.raceId, ra.year, c.name as constructor, d1.surname as driver1, d2.surname as driver2, r1.position as driver1_pos, r2.position as driver2_pos FROM ErgastF1.results r1 JOIN ErgastF1.results r2 ON r1.raceId = r2.raceId AND r1.constructorId = r2.constructorId AND r1.driverId < r2.driverId JOIN ErgastF1.drivers d1 ON r1.driverId = d1.driverId JOIN ErgastF1.drivers d2 ON r2.driverId = d2.driverId JOIN ErgastF1.constructors c ON r1.constructorId = c.constructorId JOIN ErgastF1.races ra ON r1.raceId = ra.raceId WHERE r1.position IS NOT NULL AND r2.position IS NOT NULL AND r1.position > 0 AND r2.position > 0 AND ra.year = 2015 AND c.name = 'Mercedes'"
+  },
+  {
+    "prompt": "Find the top 3 F1 rookie drivers ordered by their start count (highest first) then surname (descending).",
+    "query": "SELECT d.forename, d.surname, COUNT(*) as career_starts FROM ErgastF1.results r JOIN ErgastF1.drivers d ON r.driverId = d.driverId GROUP BY d.driverId, d.forename, d.surname HAVING COUNT(*) < 20 ORDER BY career_starts DESC, d.surname DESC LIMIT 3"
+  },
+  {
+    "prompt": "Find countries with small populations (< 100,000) - economic data for these may be unreliable. Exclude countries with population = 0. Show their name, population, and gross national product.",
+    "query": "SELECT c.Name, c.Population, c.GNP FROM world.Country c WHERE c.Population < 100000 AND c.Population > 0"
+  },
+  {
+    "prompt": "List countries by continent with their dominant languages where language percentage exceeds 90%, showing whether each language is official.",
+    "query": "SELECT co.Continent, co.Name as country, cl.Language, cl.Percentage, cl.IsOfficial FROM world.Country co JOIN world.CountryLanguage cl ON co.Code = cl.CountryCode WHERE cl.Percentage > 90"
+  },
+  {
+    "prompt": "Find the default rate for loans.",
+    "query": "SELECT CAST(COUNT(CASE WHEN status IN ('C', 'D') THEN 1 END) AS REAL) / COUNT(CASE WHEN status NOT IN ('B') THEN 1 END) as default_rate_pct FROM financial.loan"
+  },
+  {
+    "prompt": "Find the top 50 member-quarters by charge count. I want to see the member's first and last name, the statement number, the charge count, and the total charges.",
+    "query": "SELECT m.firstname, m.lastname, c.statement_no, COUNT(*) as charge_count, SUM(c.charge_amt) as total_charges FROM Credit.member m JOIN Credit.charge c ON m.member_no = c.member_no WHERE c.charge_amt != 0.01 AND c.charge_code != 'RF' GROUP BY m.member_no, m.firstname, m.lastname, c.statement_no ORDER BY charge_count DESC LIMIT 50"
+  },
+  {
+    "prompt": "Find providers with fewer than 100 total charges that should be aggregated as 'Long tail providers'. I want to see the provider number and the charge count.",
+    "query": "SELECT p.provider_no, COUNT(*) as charge_count FROM Credit.charge c JOIN Credit.provider p ON c.provider_no = p.provider_no WHERE c.charge_amt != 0.01 AND c.charge_code != 'RF' GROUP BY p.provider_no HAVING COUNT(*) < 100"
+  },
+  {
+    "prompt": "Find the names and years of the top 50 Hall of Fame players by career hits.",
+    "query": "SELECT p.nameFirst, p.nameLast, h.yearID as inducted_year, sum(b.H) as career_hits FROM lahman_2014.halloffame h JOIN lahman_2014.players p ON h.hofID = p.hofID JOIN lahman_2014.batting b ON p.playerID = b.playerID WHERE h.inducted = 'Y' AND h.category = 'Player' GROUP BY p.playerID, p.nameFirst, p.nameLast, h.yearID HAVING SUM(b.AB) >= 100 ORDER BY career_hits DESC LIMIT 50"
+  },
+  {
+    "prompt": "Identify games with rating mismatches (Elo difference > 400 points) that should be weighted 0.5x in opening analysis.",
+    "query": "SELECT g.game_id, g.white, g.black, g.whiteElo, g.BlackElo, ABS(g.whiteElo - g.BlackElo) as elo_diff, o.name as opening FROM Chess.game g JOIN Chess.opening o ON g.opening_id = o.opening_id WHERE g.whiteElo IS NOT NULL AND g.BlackElo IS NOT NULL AND ABS(g.whiteElo - g.BlackElo) > 400 AND o.name NOT LIKE '%French%' AND o.name NOT LIKE '%Sicilian%'"
+  },
+  {
+    "prompt": "Count the number of beers missing IBU data that should be flagged for data quality analysis.",
+    "query": "SELECT COUNT(*) as missing_ibu_count FROM CraftBeer.beers b WHERE b.ibu IS NULL"
+  }
+]

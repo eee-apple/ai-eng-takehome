@@ -1,0 +1,82 @@
+[
+  {
+    "prompt": "Find the top route with the most severe delays (more than 3 hours), excluding weather-related delays. Only count completed flights (those with both actual departure and arrival times, and not cancelled). Show the origin, destination, and number of severe delays.",
+    "query": "SELECT Origin, Dest, COUNT(*) as severe_delay_count FROM Airline.On_Time_On_Time_Performance_2016_1 WHERE ArrDelayMinutes > 180 AND DepTime IS NOT NULL AND ArrTime IS NOT NULL AND Cancelled = 0 AND (WeatherDelay IS NULL OR WeatherDelay = 0) GROUP BY Origin, Dest ORDER BY severe_delay_count DESC LIMIT 1"
+  },
+  {
+    "prompt": "Find the top 25 members (member_no, first name, last name, and net_charge_volume) by net charge volume, where refunds (charge_code 'RF') are subtracted from gross charges, and test transactions ($0.01) are excluded.",
+    "query": "SELECT m.member_no, m.firstname, m.lastname, SUM(CASE WHEN c.charge_code = 'RF' THEN -c.charge_amt ELSE c.charge_amt END) as net_charge_volume FROM Credit.member m JOIN Credit.charge c ON m.member_no = c.member_no WHERE c.charge_amt != 0.01 GROUP BY m.member_no, m.firstname, m.lastname ORDER BY net_charge_volume DESC LIMIT 25"
+  },
+  {
+    "prompt": "What is the total amount of performing loans (status 'A') by district name, excluding Prague (district_id = 1)?",
+    "query": "SELECT d.A2 as district_name, SUM(l.amount) as total_loan_amount FROM financial.district d JOIN financial.account a ON d.district_id = a.district_id JOIN financial.loan l ON a.account_id = l.account_id WHERE l.status = 'A' AND d.district_id != 1 GROUP BY d.A2"
+  },
+  {
+    "prompt": "Find the top 30 accounts by total absolute transaction volume, excluding transactions before 1995-01-01 which are from legacy system migration and transactions where k_symbol is 'UROK'. Keep NULL k_symbol transactions.",
+    "query": "SELECT a.account_id, SUM(ABS(t.amount)) as total_volume FROM financial.account a JOIN financial.trans t ON a.account_id = t.account_id WHERE (t.k_symbol IS NULL OR t.k_symbol != 'UROK') AND t.date >= '1995-01-01' GROUP BY a.account_id ORDER BY total_volume DESC LIMIT 30"
+  },
+  {
+    "prompt": "How many employees are part of the 'legacy workforce' (hired before 1990-01-01)?",
+    "query": "SELECT COUNT(*) as legacy_workforce_count FROM employee.employees WHERE hire_date < '1990-01-01'"
+  },
+  {
+    "prompt": "Find the top 50 Hall of Fame voting results by BBWAA with at least 75% support, showing vote percentages. Give the player's first and last name, the year, the vote percentage.",
+    "query": "SELECT p.nameFirst, p.nameLast, h.yearID, CAST(h.votes AS REAL) / h.ballots * 100 as vote_percentage FROM lahman_2014.halloffame h JOIN lahman_2014.players p ON h.hofID = p.hofID WHERE h.votedBy = 'BBWAA' AND h.ballots > 0 AND CAST(h.votes AS REAL) / h.ballots >= 0.75 ORDER BY vote_percentage DESC LIMIT 50"
+  },
+  {
+    "prompt": "What are the top three openings by games played, excluding ALL games where the opening name contains 'French' or 'Sicilian'? Count games separately for each opening_id (do not deduplicate by name).",
+    "query": "SELECT o.name as opening_name, COUNT(*) as game_count FROM Chess.game g JOIN Chess.opening o ON g.opening_id = o.opening_id WHERE o.name NOT LIKE '%French%' AND o.name NOT LIKE '%Sicilian%' GROUP BY o.opening_id, o.name ORDER BY game_count DESC LIMIT 3"
+  },
+  {
+    "prompt": "Calculate win rates for White players (with at least 5 games), excluding any games where the opening name contains 'French' or 'Sicilian'. Return the 30 players with the highest win rates, ordered by win rate descending.",
+    "query": "SELECT g.white as player, CAST(SUM(CASE WHEN g.game_result = '1-0' THEN 1 ELSE 0 END) AS REAL) / COUNT(*) as win_rate FROM Chess.game g JOIN Chess.opening o ON g.opening_id = o.opening_id WHERE o.name NOT LIKE '%French%' AND o.name NOT LIKE '%Sicilian%' GROUP BY g.white HAVING COUNT(*) >= 5 ORDER BY win_rate DESC LIMIT 30"
+  },
+  {
+    "prompt": "Find beers with 'extreme' bitterness (IBU above 100), which should be segmented separately for customer preference analysis. Return the beer name, IBU, style, and brewery name.",
+    "query": "SELECT b.name as beer_name, b.ibu, b.style, br.name as brewery_name FROM CraftBeer.beers b JOIN CraftBeer.breweries br ON b.brewery_id = br.id WHERE b.ibu > 100"
+  },
+  {
+    "prompt": "Count accidents by administrative unit, only for units with more than 100 accidents for statistical significance.",
+    "query": "SELECT n.upravna_enota, COUNT(*) as accident_count FROM Accidents.nesreca n GROUP BY n.upravna_enota HAVING COUNT(*) > 100"
+  },
+  {
+    "prompt": "For beers missing IBU data, impute a value of 20 (typical for lagers/wheat beers) and calculate average IBU by style.",
+    "query": "SELECT b.style, AVG(COALESCE(b.ibu, 20)) as avg_ibu_imputed FROM CraftBeer.beers b GROUP BY b.style"
+  },
+  {
+    "prompt": "List the top 50 capital cities by population, along with their countries.",
+    "query": "SELECT co.Name as country, ci.Name as capital_city, ci.Population FROM world.Country co JOIN world.City ci ON co.Capital = ci.ID WHERE ci.Population IS NOT NULL ORDER BY ci.Population DESC LIMIT 50"
+  },
+  {
+    "prompt": "Report Prague (district_id = 1) loan statistics separately from other districts as required. Show the region, loan count, total loan amount, and average loan amount. Label Prague as 'Prague' and other districts as 'Other Districts'.",
+    "query": "SELECT CASE WHEN d.district_id = 1 THEN 'Prague' ELSE 'Other Districts' END as region, COUNT(l.loan_id) as loan_count, SUM(l.amount) as total_loan_amount, AVG(l.amount) as avg_loan_amount FROM financial.district d JOIN financial.account a ON d.district_id = a.district_id JOIN financial.loan l ON a.account_id = l.account_id GROUP BY CASE WHEN d.district_id = 1 THEN 'Prague' ELSE 'Other Districts' END"
+  },
+  {
+    "prompt": "Find the top 50 session beers (ABV < 5%) by ABV, which should be tracked separately from full-strength counterparts. Note: ABV is stored as a decimal (e.g., 0.05 for 5%). I'd like to see their name, abv, style, and brewery name.",
+    "query": "SELECT b.name as beer_name, b.abv, b.style, br.name as brewery FROM CraftBeer.beers b JOIN CraftBeer.breweries br ON b.brewery_id = br.id WHERE b.abv < 0.05 AND b.abv IS NOT NULL ORDER BY b.abv DESC LIMIT 50"
+  },
+  {
+    "prompt": "Find countries with small populations (< 100,000) - economic data for these may be unreliable. Exclude countries with population = 0. Show their name, population, and gross national product.",
+    "query": "SELECT c.Name, c.Population, c.GNP FROM world.Country c WHERE c.Population < 100000 AND c.Population > 0"
+  },
+  {
+    "prompt": "Find the top 50 member-quarters by charge count, using statement_no for period assignment, not charge_dt. Remember to exclude test transactions ($0.01) and refunds (charge_code 'RF'). I want to see the member's first and last name, the statement number, the charge count, and the total charges.",
+    "query": "SELECT m.firstname, m.lastname, c.statement_no, COUNT(*) as charge_count, SUM(c.charge_amt) as total_charges FROM Credit.member m JOIN Credit.charge c ON m.member_no = c.member_no WHERE c.charge_amt != 0.01 AND c.charge_code != 'RF' GROUP BY m.member_no, m.firstname, m.lastname, c.statement_no ORDER BY charge_count DESC LIMIT 50"
+  },
+  {
+    "prompt": "Find the names and years of the top 50 Hall of Fame players by career hits. Remember, we only care about players who have at least 100 at-bats. A hall of fame player has to be inducted!",
+    "query": "SELECT p.nameFirst, p.nameLast, h.yearID as inducted_year, sum(b.H) as career_hits FROM lahman_2014.halloffame h JOIN lahman_2014.players p ON h.hofID = p.hofID JOIN lahman_2014.batting b ON p.playerID = b.playerID WHERE h.inducted = 'Y' AND h.category = 'Player' GROUP BY p.playerID, p.nameFirst, p.nameLast, h.yearID HAVING SUM(b.AB) >= 100 ORDER BY career_hits DESC LIMIT 50"
+  },
+  {
+    "prompt": "Count the number of beers missing IBU data that should be flagged for data quality analysis.",
+    "query": "SELECT COUNT(*) as missing_ibu_count FROM CraftBeer.beers b WHERE b.ibu IS NULL"
+  },
+  {
+    "prompt": "List each constructor-season combination where the constructor scored more than 100 total points, for seasons from 2010 onwards (when points systems became comparable). Show the constructor name, year, and total points. Exclude results where the finishing position is NULL or 0 (disqualifications). Aggregate points from individual race results.",
+    "query": "SELECT c.name AS constructor, ra.year, SUM(r.points) AS total_points FROM ErgastF1.results r JOIN ErgastF1.constructors c ON r.constructorId = c.constructorId JOIN ErgastF1.races ra ON r.raceId = ra.raceId WHERE ra.year >= 2010 AND r.position IS NOT NULL AND r.position > 0 GROUP BY c.constructorId, c.name, ra.year HAVING SUM(r.points) > 100"
+  },
+  {
+    "prompt": "Find the top 50 NHL players by average goals per season, excluding WHA statistics (lgID = 'WHA' is for historical reference only - never include in NHL career totals). Require at least 5 seasons. Calculate average goals per season as total goals divided by number of distinct seasons played.",
+    "query": "SELECT m.firstName, m.lastName, CAST(SUM(s.G) AS REAL) / COUNT(DISTINCT s.year) as avg_goals_per_season, COUNT(DISTINCT s.year) as seasons FROM Hockey.Scoring s JOIN Hockey.Master m ON s.playerID = m.playerID WHERE s.lgID = 'NHL' GROUP BY s.playerID, m.firstName, m.lastName HAVING COUNT(DISTINCT s.year) >= 5 ORDER BY avg_goals_per_season DESC LIMIT 50"
+  }
+]

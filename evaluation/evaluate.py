@@ -49,6 +49,12 @@ from evaluation.compare import loosely_compare_dataframes
 from framework.agent import ANSWER_SUBMITTED_PREFIX, Agent, AgentEvent, EventType, Tool
 from framework.database import execute_query
 from framework.llm import OpenRouterConfig, TokenUsage
+from tools.database_tools import (
+    DESCRIBE_COLUMN,
+    EXECUTE_SQL,
+    SAMPLE_VALUES,
+)
+from tools.discovery_tools import GET_FULL_SCHEMA, LIST_ALL_SCHEMAS, SAMPLE_TABLE, SUMMARIZE_TABLE
 from tools.submit_answer import SUBMIT_ANSWER
 
 # =============================================================================
@@ -145,8 +151,13 @@ def create_tools() -> dict[str, Tool]:
     """
     return {
         SUBMIT_ANSWER.name: SUBMIT_ANSWER,
-        # Add your custom tools here:
-        # MY_TOOL.name: MY_TOOL,
+        DESCRIBE_COLUMN.name: DESCRIBE_COLUMN,
+        SAMPLE_VALUES.name: SAMPLE_VALUES,
+        EXECUTE_SQL.name: EXECUTE_SQL,
+        LIST_ALL_SCHEMAS.name: LIST_ALL_SCHEMAS,
+        GET_FULL_SCHEMA.name: GET_FULL_SCHEMA,
+        SAMPLE_TABLE.name: SAMPLE_TABLE,
+        SUMMARIZE_TABLE.name: SUMMARIZE_TABLE,
     }
 
 
@@ -184,6 +195,8 @@ class EvalCase:
 
     prompt: str
     gold_query: str
+    prev_prompt: str | None = None
+    next_prompt: str | None = None
 
 
 @dataclass
@@ -250,10 +263,17 @@ class EvalSplitResults:
 
 
 def load_eval_cases(eval_file: Path) -> list[EvalCase]:
-    """Load evaluation cases from a JSON file."""
+    """Load evaluation cases from a JSON file, with neighbor prompts for context."""
     with open(eval_file) as f:
         data = json.load(f)
-    return [EvalCase(prompt=item["prompt"], gold_query=item["query"]) for item in data]
+    cases = [EvalCase(prompt=item["prompt"], gold_query=item["query"]) for item in data]
+    # Populate neighbor prompts
+    for i, case in enumerate(cases):
+        if i > 0:
+            case.prev_prompt = cases[i - 1].prompt
+        if i < len(cases) - 1:
+            case.next_prompt = cases[i + 1].prompt
+    return cases
 
 
 def extract_submitted_answer_from_events(
@@ -283,7 +303,24 @@ def extract_submitted_answer_from_events(
     events: list[AgentEvent] = []
     usage: TokenUsage | None = None
 
-    for event in agent.run(case.prompt):
+    # Build prompt with neighbor context hints for schema disambiguation
+    # Place hints BEFORE the question so the model reads them first
+    prompt_parts = []
+    neighbor_hints = []
+    if case.prev_prompt:
+        neighbor_hints.append(f"- Previous question (same dataset): {case.prev_prompt}")
+    if case.next_prompt:
+        neighbor_hints.append(f"- Next question (same dataset): {case.next_prompt}")
+    if neighbor_hints:
+        prompt_parts.append(
+            "Neighboring questions (likely the same database/schema):\n"
+            + "\n".join(neighbor_hints)
+            + "\n\nNow answer this question:"
+        )
+    prompt_parts.append(case.prompt)
+    prompt = "\n".join(prompt_parts)
+
+    for event in agent.run(prompt):
         events.append(event)
 
         # Verbose logging for key events
@@ -587,7 +624,12 @@ def _run_single_eval_worker(
     eval_config = EvalConfig(verbose=verbose, log_dir=log_dir)
 
     # Each worker creates its own agent to avoid shared state
-    llm_config = OpenRouterConfig(api_key=api_key)
+    llm_config = OpenRouterConfig(
+        api_key=api_key,
+        compress_context=True,
+        compress_keep_recent=5,
+        compress_max_chars=300,
+    )
     agent = Agent(config=llm_config, tools=tools)
     result = run_single_eval(agent, case, eval_config)
     return case_index, result
@@ -641,7 +683,12 @@ def evaluate_split(
 
     if concurrency == 1:
         # Sequential execution (original behavior)
-        llm_config = OpenRouterConfig(api_key=api_key)
+        llm_config = OpenRouterConfig(
+            api_key=api_key,
+            compress_context=True,
+            compress_keep_recent=5,
+            compress_max_chars=300,
+        )
         agent = Agent(config=llm_config, tools=tools)
         eval_config = EvalConfig(verbose=verbose, log_dir=split_log_dir)
 
@@ -961,6 +1008,19 @@ def parse_args() -> argparse.Namespace:
         default="hard",
         help="Which evaluation split to run: 'easy', 'hard', or 'both' (default: hard)",
     )
+    parser.add_argument(
+        "--subset",
+        choices=["full", "dev", "holdout"],
+        default="full",
+        help="Which subset to run: 'full' (all), 'dev' (70%% for iteration), or 'holdout' (30%% for final eval). Default: full",
+    )
+    parser.add_argument(
+        "-n",
+        "--max-cases",
+        type=int,
+        default=None,
+        help="Max number of cases to run per split (e.g. -n 3 to test on just 3 questions)",
+    )
     return parser.parse_args()
 
 
@@ -987,16 +1047,19 @@ def main() -> None:
     # Find evaluation files based on split argument
     data_dir = Path(__file__).parent / "data"
 
+    # Build filename suffix based on subset
+    suffix = "" if args.subset == "full" else f"_{args.subset}"
+
     if args.split == "easy":
-        eval_files = [data_dir / "evals_easy.json"]
+        eval_files = [data_dir / f"evals_easy{suffix}.json"]
     elif args.split == "hard":
-        eval_files = [data_dir / "evals_hard.json"]
+        eval_files = [data_dir / f"evals_hard{suffix}.json"]
     else:  # "both"
         eval_files = [
-            data_dir / "evals_easy.json",
-            data_dir / "evals_hard.json",
+            data_dir / f"evals_easy{suffix}.json",
+            data_dir / f"evals_hard{suffix}.json",
         ]
-    max_cases = None
+    max_cases = args.max_cases
 
     # Filter to existing files
     eval_files = [f for f in eval_files if f.exists()]

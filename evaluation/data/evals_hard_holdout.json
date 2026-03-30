@@ -1,0 +1,82 @@
+[
+  {
+    "prompt": "Identify the top 30 members (first, last) by cumulative lifetime charges.",
+    "query": "SELECT m.firstname, m.lastname, SUM(c.charge_amt) as lifetime_charges FROM Credit.member m JOIN Credit.charge c ON m.member_no = c.member_no WHERE c.charge_code != 'RF' AND c.charge_amt != 0.01 GROUP BY m.member_no, m.firstname, m.lastname ORDER BY lifetime_charges DESC LIMIT 30"
+  },
+  {
+    "prompt": "Find the top 30 accounts by total absolute transaction volume, excluding legacy transactions?",
+    "query": "SELECT a.account_id, SUM(ABS(t.amount)) as total_volume FROM financial.account a JOIN financial.trans t ON a.account_id = t.account_id WHERE (t.k_symbol IS NULL OR t.k_symbol != 'UROK') AND t.date >= '1995-01-01' GROUP BY a.account_id ORDER BY total_volume DESC LIMIT 30"
+  },
+  {
+    "prompt": "Compare average salaries by gender for current employees.",
+    "query": "SELECT e.gender, AVG(s.salary) as avg_salary FROM employee.employees e JOIN employee.salaries s ON e.emp_no = s.emp_no WHERE s.to_date = '9999-01-01' GROUP BY e.gender HAVING COUNT(*) >= 10"
+  },
+  {
+    "prompt": "Find the top 50 Hall of Fame voting results by BBWAA with at least 75% support, showing vote percentages. Give the player's first and last name, the year, the vote percentage.",
+    "query": "SELECT p.nameFirst, p.nameLast, h.yearID, CAST(h.votes AS REAL) / h.ballots * 100 as vote_percentage FROM lahman_2014.halloffame h JOIN lahman_2014.players p ON h.hofID = p.hofID WHERE h.votedBy = 'BBWAA' AND h.ballots > 0 AND CAST(h.votes AS REAL) / h.ballots >= 0.75 ORDER BY vote_percentage DESC LIMIT 50"
+  },
+  {
+    "prompt": "Find beers with 'extreme' bitterness. Return the beer name, IBU, style, and brewery name.",
+    "query": "SELECT b.name as beer_name, b.ibu, b.style, br.name as brewery_name FROM CraftBeer.beers b JOIN CraftBeer.breweries br ON b.brewery_id = br.id WHERE b.ibu > 100"
+  },
+  {
+    "prompt": "Find the top 50 NHL players by career points, only including players with at least 5 seasons.",
+    "query": "SELECT s.playerID, m.firstName, m.lastName, SUM(s.Pts) as career_points, COUNT(DISTINCT s.year) as seasons FROM Hockey.Scoring s JOIN Hockey.Master m ON s.playerID = m.playerID WHERE s.lgID = 'NHL' GROUP BY s.playerID, m.firstName, m.lastName HAVING COUNT(DISTINCT s.year) >= 5 ORDER BY career_points DESC LIMIT 50"
+  },
+  {
+    "prompt": "Identify 'super users' by id in the movie ratings data, showing the number of ratings they've given.",
+    "query": "SELECT u.userid, COUNT(*) as ratings_given FROM imdb_MovieLens.u2base u GROUP BY u.userid HAVING COUNT(*) > 1000"
+  },
+  {
+    "prompt": "List major cities along with their country information.",
+    "query": "SELECT ci.Name as city_name, ci.Population, co.Name as country_name, co.Continent, co.Region FROM world.City ci JOIN world.Country co ON ci.CountryCode = co.Code WHERE ci.Population > 2000000"
+  },
+  {
+    "prompt": "Group charges by spending type. Show the spending_type, charge_count, and total_amount.",
+    "query": "SELECT CASE WHEN c.category_no BETWEEN 1 AND 10 THEN 'Essential' WHEN c.category_no BETWEEN 11 AND 20 THEN 'Discretionary' ELSE 'Other' END as spending_type, COUNT(*) as charge_count, SUM(c.charge_amt) as total_amount FROM Credit.charge c WHERE c.charge_amt != 0.01 AND c.charge_code != 'RF' GROUP BY CASE WHEN c.category_no BETWEEN 1 AND 10 THEN 'Essential' WHEN c.category_no BETWEEN 11 AND 20 THEN 'Discretionary' ELSE 'Other' END"
+  },
+  {
+    "prompt": "Find country names where the sum of language percentages exceeds 100% due to multilingualism.",
+    "query": "SELECT co.Name FROM world.Country co JOIN world.CountryLanguage cl ON co.Code = cl.CountryCode GROUP BY co.Name HAVING SUM(cl.Percentage) > 100"
+  },
+  {
+    "prompt": "Find all origin/destination airport pairs that are thin routes. How many such pairs are there?",
+    "query": "SELECT COUNT(*) AS thin_route_count FROM (SELECT Origin, Dest FROM Airline.On_Time_On_Time_Performance_2016_1 WHERE DepTime IS NOT NULL AND ArrTime IS NOT NULL GROUP BY Origin, Dest HAVING COUNT(*) < 50) thin_routes"
+  },
+  {
+    "prompt": "Find the top 50 statements by net amount.",
+    "query": "SELECT c.statement_no, SUM(CASE WHEN c.charge_code != 'RF' THEN c.charge_amt ELSE 0 END) as gross_charges, SUM(CASE WHEN c.charge_code = 'RF' THEN c.charge_amt ELSE 0 END) as refunds, SUM(CASE WHEN c.charge_code != 'RF' THEN c.charge_amt ELSE 0 END) - SUM(CASE WHEN c.charge_code = 'RF' THEN c.charge_amt ELSE 0 END) as net_amount FROM Credit.charge c WHERE c.charge_amt != 0.01 GROUP BY c.statement_no ORDER BY net_amount DESC LIMIT 50"
+  },
+  {
+    "prompt": "Find district names (A2) with fewer than 50 accounts that should be aggregated as 'Other' for reporting, as well as their account counts.",
+    "query": "SELECT d.A2 as district_name, COUNT(a.account_id) as account_count FROM financial.district d LEFT JOIN financial.account a ON d.district_id = a.district_id GROUP BY d.district_id, d.A2 HAVING COUNT(a.account_id) < 50"
+  },
+  {
+    "prompt": "Show the region, loan count, total loan amount, and average loan amount for each loan classification. Label Prague as 'Prague' and other districts as 'Other Districts'.",
+    "query": "SELECT CASE WHEN d.district_id = 1 THEN 'Prague' ELSE 'Other Districts' END as region, COUNT(l.loan_id) as loan_count, SUM(l.amount) as total_loan_amount, AVG(l.amount) as avg_loan_amount FROM financial.district d JOIN financial.account a ON d.district_id = a.district_id JOIN financial.loan l ON a.account_id = l.account_id GROUP BY CASE WHEN d.district_id = 1 THEN 'Prague' ELSE 'Other Districts' END"
+  },
+  {
+    "prompt": "Find salary statistics for departments where salary statistics can be reported. Show me employee count and average salary by department name.",
+    "query": "SELECT d.dept_name, COUNT(DISTINCT e.emp_no) as employee_count, AVG(s.salary) as avg_salary FROM employee.dept_emp de JOIN employee.departments d ON de.dept_no = d.dept_no JOIN employee.employees e ON de.emp_no = e.emp_no JOIN employee.salaries s ON e.emp_no = s.emp_no WHERE de.to_date = '9999-01-01' AND s.to_date = '9999-01-01' GROUP BY d.dept_name HAVING COUNT(DISTINCT e.emp_no) >= 5"
+  },
+  {
+    "prompt": "Analyze completed flights by day of week for January 2016. Give total flights, on-time flights, and average delay in minutes by day of week.",
+    "query": "SELECT DayOfWeek, COUNT(*) as total_flights, SUM(CASE WHEN ArrDelayMinutes <= 15 THEN 1 ELSE 0 END) as on_time_flights, AVG(ArrDelayMinutes) as avg_delay FROM Airline.On_Time_On_Time_Performance_2016_1 WHERE DepTime IS NOT NULL AND ArrTime IS NOT NULL AND Cancelled = 0 AND Month = 1 GROUP BY DayOfWeek"
+  },
+  {
+    "prompt": "Calculate transaction statistics (total deposits, total deposit amount, and average deposit amount).",
+    "query": "SELECT COUNT(*) as total_deposits, SUM(amount) as total_deposit_amount, AVG(amount) as avg_deposit_amount FROM financial.trans WHERE type = 'PRIJEM' AND amount >= 1000 AND k_symbol IS NOT NULL AND k_symbol != 'UROK' AND date >= '1995-01-01'"
+  },
+  {
+    "prompt": "Find the top 50 starting pitchers by games started, showing their season statistics. I want to see the player's first and last name, the year, the games started, the innings pitched, and the earned runs.",
+    "query": "SELECT p.nameFirst, p.nameLast, pi.yearID, pi.GS as games_started, pi.IPouts / 3 as innings_pitched, pi.ER FROM lahman_2014.pitching pi JOIN lahman_2014.players p ON pi.playerID = p.playerID WHERE pi.GS > 0 AND pi.IPouts >= 150 ORDER BY pi.GS DESC LIMIT 50"
+  },
+  {
+    "prompt": "List each constructor-season combination where the constructor scored more than 100 total points, for seasons after when points systems became comparable. Show the constructor name, year, and total points. Aggregate points from individual race results.",
+    "query": "SELECT c.name AS constructor, ra.year, SUM(r.points) AS total_points FROM ErgastF1.results r JOIN ErgastF1.constructors c ON r.constructorId = c.constructorId JOIN ErgastF1.races ra ON r.raceId = ra.raceId WHERE ra.year >= 2010 AND r.position IS NOT NULL AND r.position > 0 GROUP BY c.constructorId, c.name, ra.year HAVING SUM(r.points) > 100"
+  },
+  {
+    "prompt": "Find the top 50 NHL players by average goals per season, only including players with at least 5 seasons.",
+    "query": "SELECT m.firstName, m.lastName, CAST(SUM(s.G) AS REAL) / COUNT(DISTINCT s.year) as avg_goals_per_season, COUNT(DISTINCT s.year) as seasons FROM Hockey.Scoring s JOIN Hockey.Master m ON s.playerID = m.playerID WHERE s.lgID = 'NHL' GROUP BY s.playerID, m.firstName, m.lastName HAVING COUNT(DISTINCT s.year) >= 5 ORDER BY avg_goals_per_season DESC LIMIT 50"
+  }
+]
